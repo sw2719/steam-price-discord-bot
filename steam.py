@@ -9,6 +9,7 @@ import aiohttp
 from collections import OrderedDict
 from discord.ext import commands
 from discord import Embed, Activity, ActivityType
+from bs4 import BeautifulSoup
 
 logging.basicConfig(level=logging.WARNING)
 
@@ -77,6 +78,24 @@ class SteamPriceBot(commands.Bot):
         with open('added_games.json', 'w') as f:
             f.write(json.dumps(self.id_dict, indent=4))
 
+    def parse_url(self, input_url):
+        if re.match('https://store.steampowered.com/app/[0-9]+', input_url):
+            app_id = re.findall('app/([0-9]+)', str(input_url))[0]
+            url_type = 'app'
+
+        elif re.match('https://store.steampowered.com/sub/[0-9]+', input_url):
+            app_id = re.findall()('sub/([0-9]+)', str(input_url))[0]
+            url_type = 'sub'
+
+        elif re.match('https://store.steampowered.com/bundle/[0-9]+', input_url):
+            app_id = re.findall('bundle/([0-9]+)', str(input_url))[0]
+            url_type = 'bundle'
+
+        else:
+            return None, None
+
+        return app_id, url_type
+
     def add_bot_commands(self):
         @self.command(name='help')
         async def help_(ctx):
@@ -95,7 +114,7 @@ class SteamPriceBot(commands.Bot):
 
                 try:
                     msg = Embed(title='게임 추가',
-                                description='추가할 게임의 상점 URL을 입력하세요.\n현재 꾸러미는 지원하지 않습니다.')
+                                description="추가할 게임의 상점 URL을 입력하세요.\n취소하려면'취소' 라고 입력하세요.")
                     add_msg = await ctx.channel.send(embed=msg)
                     message = await self.wait_for('message', timeout=20.0, check=check)
 
@@ -118,22 +137,9 @@ class SteamPriceBot(commands.Bot):
                     await message.delete()
                     await add_msg.delete()
 
-            if re.match('https://store.steampowered.com/app/[0-9]+', input_url):
-                app_id = re.findall('app/([0-9]+)', str(input_url))[0]
-                url_type = 'app'
+            app_id, url_type = self.parse_url(input_url)
 
-            elif re.match('https://store.steampowered.com/sub/[0-9]+', input_url):
-                app_id = re.findall('sub/([0-9]+)', str(input_url))[0]
-                url_type = 'sub'
-
-            elif re.match('https://store.steampowered.com/bundle/[0-9]+', input_url):
-                await ctx.message.delete()
-                msg = Embed(title='게임 추가 오류',
-                            description='꾸러미는 지원되지 않습니다.')
-                await ctx.channel.send(embed=msg, delete_after=10.0)
-                return
-
-            else:
+            if not app_id:
                 await ctx.message.delete()
                 msg = Embed(title='게임 추가 오류',
                             description='올바른 Steam 상점 URL이 아닙니다.')
@@ -155,6 +161,7 @@ class SteamPriceBot(commands.Bot):
 
             if app_id not in self.id_dict:
                 self.id_dict[app_id] = {'user_id': ctx.author.id,
+                                        'guild': ctx.guild.id,
                                         'channel': ctx.channel.id,
                                         'type': url_type}
                 self.item_dict[app_id] = {}
@@ -167,6 +174,130 @@ class SteamPriceBot(commands.Bot):
                 msg = Embed(title='알림',
                             description='이미 추가된 게임입니다.')
                 await ctx.channel.send(embed=msg, delete_after=10.0)
+
+            return
+
+        @self.command()
+        async def search(ctx, *query):
+
+            def check(message):
+                return message.author.id == ctx.author.id
+
+            if not query:
+                add_msg = None
+
+                try:
+                    msg = Embed(title='이름으로 게임 추가',
+                                description='추가할 게임의 이름을 입력하세요.')
+                    add_msg = await ctx.channel.send(embed=msg)
+                    message = await self.wait_for('message', timeout=20.0, check=check)
+
+                except asyncio.TimeoutError:
+                    await ctx.message.delete()
+                    msg = Embed(title='이름으로 게임 추가',
+                                description='시간이 초과되었습니다. 다시 시도하세요.')
+                    await add_msg.edit(embed=msg, delete_after=5.0)
+                    return
+
+                if message.content == '취소':
+                    await ctx.message.delete()
+                    await message.delete()
+                    msg = Embed(title='이름으로 게임 추가',
+                                description='추가를 취소했습니다.')
+                    await add_msg.edit(embed=msg, delete_after=5.0)
+                    return
+                else:
+                    query = message.content.split(' ')
+                    await message.delete()
+                    await add_msg.delete()
+
+            await ctx.message.delete()
+
+            async with aiohttp.ClientSession() as session:
+                async with session.get(f'https://store.steampowered.com/search/?term={" ".join(query)}') as r:
+                    soup = BeautifulSoup(await r.read(), 'html.parser')
+
+            names = [str(re.sub('<[^<>]*>', '', str(name))) for name in soup.select('div.responsive_search_name_combined > div.col.search_name.ellipsis > span')]
+            urls = [str(url['href']) for url in soup.select('#search_resultsRows > a')]
+            prices = [str(re.sub('<[^<>]*>', '', str(price))).strip() for price in soup.find_all('div', class_='col search_price responsive_secondrow')]
+
+            for i, price in enumerate(prices):
+                if not price:
+                    prices[i] = '가격 없음'
+
+            if len(names) > 10:
+                max_index = 10
+            else:
+                max_index = len(names)
+
+            embed_desc = [f"추가할 게임의 번호를 입력하세요. [1-{str(max_index)}]\n취소하려면 '취소'라고 입력하세요.\n"]
+
+            for i, name in enumerate(names):
+                if i < 10:
+                    embed_desc.append(f'{str(i + 1)}. {name} - {prices[i]}')
+                else:
+                    break
+
+            add_msg = None
+
+            def check_index(message):
+                try:
+                    if 1 <= int(message.content) <= max_index:
+                        return message.author.id == ctx.author.id
+
+                except ValueError:
+                    if message.content == '취소':
+                        return message.author.id == ctx.author.id
+                    else:
+                        pass
+
+            try:
+                msg = Embed(title='게임 선택',
+                            description='\n'.join(embed_desc))
+                add_msg = await ctx.channel.send(embed=msg)
+                message = await self.wait_for('message', timeout=20.0, check=check_index)
+
+            except asyncio.TimeoutError:
+                await ctx.message.delete()
+                msg = Embed(title='게임 선택',
+                            description='시간이 초과되었습니다. 다시 시도하세요.')
+                await add_msg.edit(embed=msg, delete_after=5.0)
+                return
+
+            if message.content == '취소':
+                await ctx.message.delete()
+                await message.delete()
+                msg = Embed(title='게임 선택',
+                            description='추가를 취소했습니다.')
+                await add_msg.edit(embed=msg, delete_after=5.0)
+                return
+
+            else:
+                index = int(message.content) - 1
+                await message.delete()
+
+            name = names[index]
+            price = prices[index]
+            app_url = urls[index]
+            app_id, url_type = self.parse_url(app_url)
+
+            if app_id not in self.id_dict:
+                self.id_dict[app_id] = {'user_id': ctx.author.id,
+                                        'guild': ctx.guild.id,
+                                        'channel': ctx.channel.id,
+                                        'type': url_type}
+                self.item_dict[app_id] = {}
+                self.save_id_dict()
+
+                msg = Embed(title='게임 추가됨',
+                            description=f'[{name}]({app_url})이(가) 추가되었습니다.\n현재 가격: {price}')
+
+                await add_msg.edit(embed=msg, delete_after=15.0)
+
+            else:
+                msg = Embed(title='알림',
+                            description='이미 추가된 게임입니다.')
+                await add_msg.edit(embed=msg, delete_after=10.0)
 
             return
 
@@ -360,7 +491,7 @@ class SteamPriceBot(commands.Bot):
             game_list = []
 
             for key, value in self.id_dict.items():
-                if value['user_id'] == ctx.author.id and ctx.channel == self.get_channel(value['channel']):
+                if value['user_id'] == ctx.author.id and ctx.guild == self.get_guild(value['guild']):
                     game_list.append(key)
 
             if game_list:
@@ -368,7 +499,7 @@ class SteamPriceBot(commands.Bot):
                 content = []
 
                 for key, value in self.item_dict.items():
-                    if self.id_dict[key]['user_id'] == ctx.author.id and self.get_channel(self.id_dict[key]['channel']) == ctx.channel:
+                    if self.id_dict[key]['user_id'] == ctx.author.id and self.get_guild(self.id_dict[key]['guild']) == ctx.guild:
                         if value['on_sale']:
                             content.append(f'[{value["name"]}](https://store.steampowered.com/{self.id_dict[key]["type"]}/{key}) - {value["final_formatted"]} ({value["discount_perc"]}% 할인)')
                         else:
@@ -398,7 +529,7 @@ class SteamPriceBot(commands.Bot):
                 content = []
 
                 for key, value in self.item_dict.items():
-                    if self.get_channel(self.id_dict[key]['channel']) == ctx.channel:
+                    if self.get_channel(self.id_dict[key]['guild']) == ctx.guild:
                         if value['on_sale']:
                             content.append(f'[{value["name"]}](https://store.steampowered.com/{self.id_dict[key]["type"]}/{key}) - {value["final_formatted"]} ({value["discount_perc"]}% 할인)')
                         else:
@@ -420,66 +551,93 @@ class SteamPriceBot(commands.Bot):
         async with aiohttp.ClientSession() as session:
             await asyncio.gather(*[self.fetch_steam(session, key, value['type']) for key, value in self.id_dict.items()])
 
-    async def search(self, *query):
-        async with aiohttp.ClientSession() as session:
-            async with session.get(f'https://store.steampowered.com/search/?term={" ".join(query)}') as r:
-                content = await r.read()
+    async def fetch_bundle(self, session, app_id):
+        async with session.get(f'https://store.steampowered.com/bundle/{app_id}') as r:
+            session_id = r.cookies.get('sessionid').value
+
+        await session.post(f'https://store.steampowered.com/agecheckset/bundle/{app_id}/', data={'sessionid': session_id, 'ageDay': '1', 'ageMonth': 'January', 'ageYear': '1990'})
+
+        async with session.get(f'https://store.steampowered.com/bundle/{app_id}#') as r:
+            content = await r.read()
+
+        soup = BeautifulSoup(content, 'html.parser')
+        name = str(re.sub('<[^<>]*>', '', str(soup.find('h2', class_='pageheader'))))
+        discount_perc = str(re.sub('<[^<>0-9]*>', '', str(soup.find('div', class_='discount_pct'))))
+        initial_formatted = str(re.sub('<[^<>]*>', '', str(soup.find('div', class_='discount_original_price'))))
+        final_formatted = str(re.sub('<[^<>]*>', '', str(soup.find('div', class_='discount_final_price'))))
+
+        if discount_perc == 'None':
+            on_sale = False
+            discount_perc = ''
+        else:
+            on_sale = True
+
+        initial = re.sub('[^0-9]', '', initial_formatted)
+        final = re.sub('[^0-9]', '', final_formatted)
+
+        return name, initial, initial_formatted, final, final_formatted, on_sale, discount_perc
 
     async def fetch_steam(self, session, app_id, url_type, return_value=False):
         try:
-            if url_type == 'sub':
-                url_type = 'package'
-
-            url = f'https://store.steampowered.com/api/{url_type}details?{url_type}ids={app_id}'
-
-            async with session.get(url) as r:
-                content = await r.read()
-
-            data = json.loads(content)[app_id]['data']
-            name = data['name']
-
-            if url_type == 'app':
-                initial = str(data['price_overview']['initial'])[:-2]
-                final = str(data['price_overview']['final'])[:-2]
-
-                initial_formatted = data['price_overview']['initial_formatted']
-                final_formatted = data['price_overview']['final_formatted']
-                discount_perc = data['price_overview']['discount_percent']
-
-            elif url_type == 'package':
-                initial = str(data['price']['initial'])[:-2]
-                final = str(data['price']['final'])[:-2]
-
-                initial_formatted = f'₩ {format(int(initial), ",d")}'
-                final_formatted = f'₩ {format(int(final), ",d")}'
-                discount_perc = data['price']['discount_percent']
+            if url_type == 'bundle':
+                name, initial, initial_formatted, final, final_formatted, on_sale, discount_perc = await self.fetch_bundle(session, app_id)
 
             else:
-                return
+                if url_type == 'sub':
+                    url_type = 'package'
 
-            if discount_perc:
-                on_sale = True
-            else:
-                on_sale = False
+                url = f'https://store.steampowered.com/api/{url_type}details?{url_type}ids={app_id}'
 
-            if return_value:
-                return name, final_formatted
+                async with session.get(url) as r:
+                    content = await r.read()
 
-            else:
-                self.item_dict[app_id]['name'] = name
-                self.item_dict[app_id]['initial'] = initial
-                self.item_dict[app_id]['initial_formatted'] = initial_formatted
-                self.item_dict[app_id]['final'] = final
-                self.item_dict[app_id]['final_formatted'] = final_formatted
-                self.item_dict[app_id]['on_sale'] = on_sale
-                self.item_dict[app_id]['discount_perc'] = discount_perc
+                data = json.loads(content)[app_id]['data']
+                name = data['name']
+
+                if url_type == 'app':
+                    initial = str(data['price_overview']['initial'])[:-2]
+                    final = str(data['price_overview']['final'])[:-2]
+
+                    initial_formatted = data['price_overview']['initial_formatted']
+                    final_formatted = data['price_overview']['final_formatted']
+                    discount_perc = data['price_overview']['discount_percent']
+
+                elif url_type == 'package':
+                    initial = str(data['price']['initial'])[:-2]
+                    final = str(data['price']['final'])[:-2]
+
+                    initial_formatted = f'₩ {format(int(initial), ",d")}'
+                    final_formatted = f'₩ {format(int(final), ",d")}'
+                    discount_perc = data['price']['discount_percent']
+
+                else:
+                    return
+
+                if discount_perc:
+                    on_sale = True
+                else:
+                    on_sale = False
 
         except Exception as e:
-            print(traceback.format_exc())
+            print(traceback.format_exc(e))
+
             if return_value:
                 return False
             else:
                 await self.owner.send(f'다음 게임을 불러오는 도중 오류가 발생했습니다: {app_id}\n{e}')
+                return
+
+        if return_value:
+            return name, final_formatted
+
+        else:
+            self.item_dict[app_id]['name'] = name
+            self.item_dict[app_id]['initial'] = initial
+            self.item_dict[app_id]['initial_formatted'] = initial_formatted
+            self.item_dict[app_id]['final'] = final
+            self.item_dict[app_id]['final_formatted'] = final_formatted
+            self.item_dict[app_id]['on_sale'] = on_sale
+            self.item_dict[app_id]['discount_perc'] = discount_perc
 
     async def on_ready(self):
         print(f'Logged in as {self.user.name} | {self.user.id}')

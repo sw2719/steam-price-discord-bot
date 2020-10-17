@@ -123,3 +123,5 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+added_games.json
+config.json
