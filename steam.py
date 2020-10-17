@@ -101,7 +101,7 @@ class SteamPriceBot(commands.Bot):
         async def help_(ctx):
             await ctx.message.delete()
             help_msg = Embed(title='명령어 도움말',
-                             description='.add [상점 URL]  -  해당 게임을 추가합니다.\n.remove  -  자신이 추가한 게임을 제거합니다.\n.list  -  추가된 게임 목록을 확인합니다.\n\n<소유자 전용>\n.removeall  -  모든 사용자의 게임을 제거합니다.\n.listall  -  모든 사용자가 추가한 게임을 확인합니다.')
+                             description='.add [상점 URL]  -  해당 제품을 추가합니다.\n.search [제품 이름]  -  해당 이름으로 검색하여 제품을 추가합니다.\n.remove  -  자신이 추가한 제품을 제거합니다.\n.list  -  추가된 제품 목록을 확인합니다.\n\n<소유자 전용>\n.removeall  -  모든 사용자의 제품을 제거합니다.\n.listall  -  모든 사용자가 추가한 제품을 확인합니다.')
             await ctx.channel.send(embed=help_msg, delete_after=30.0)
 
         @self.command()
@@ -113,14 +113,14 @@ class SteamPriceBot(commands.Bot):
                 add_msg = None
 
                 try:
-                    msg = Embed(title='게임 추가',
-                                description="추가할 게임의 상점 URL을 입력하세요.\n취소하려면'취소' 라고 입력하세요.")
+                    msg = Embed(title='제품 추가',
+                                description="추가할 제품의 상점 URL을 입력하세요.\n취소하려면'취소' 라고 입력하세요.")
                     add_msg = await ctx.channel.send(embed=msg)
                     message = await self.wait_for('message', timeout=20.0, check=check)
 
                 except asyncio.TimeoutError:
                     await ctx.message.delete()
-                    msg = Embed(title='게임 추가',
+                    msg = Embed(title='제품 추가',
                                 description='시간이 초과되었습니다. 다시 시도하세요.')
                     await add_msg.edit(embed=msg, delete_after=5.0)
                     return
@@ -128,7 +128,7 @@ class SteamPriceBot(commands.Bot):
                 if message.content == '취소':
                     await ctx.message.delete()
                     await message.delete()
-                    msg = Embed(title='게임 추가',
+                    msg = Embed(title='제품 추가',
                                 description='추가를 취소했습니다.')
                     await add_msg.edit(embed=msg, delete_after=5.0)
                     return
@@ -141,7 +141,7 @@ class SteamPriceBot(commands.Bot):
 
             if not app_id:
                 await ctx.message.delete()
-                msg = Embed(title='게임 추가 오류',
+                msg = Embed(title='제품 추가 오류',
                             description='올바른 Steam 상점 URL이 아닙니다.')
                 await ctx.channel.send(embed=msg, delete_after=10.0)
                 return
@@ -154,8 +154,8 @@ class SteamPriceBot(commands.Bot):
                 name, price = result
             else:
                 await ctx.message.delete()
-                msg = Embed(title='게임 추가 오류',
-                            description='오류: 올바르지 않은 URL이거나 현재 판매하지 않는 게임입니다.')
+                msg = Embed(title='제품 추가 오류',
+                            description='오류: 올바르지 않은 URL이거나 현재 판매하지 않는 제품입니다.')
                 await ctx.channel.send(embed=msg, delete_after=10.0)
                 return
 
@@ -167,12 +167,12 @@ class SteamPriceBot(commands.Bot):
                 self.item_dict[app_id] = {}
                 self.save_id_dict()
 
-                msg = Embed(title='게임 추가됨',
+                msg = Embed(title='제품 추가됨',
                             description=f'[{name}]({input_url})이(가) 추가되었습니다.\n현재 가격: {price}')
                 await ctx.channel.send(embed=msg, delete_after=15.0)
             else:
                 msg = Embed(title='알림',
-                            description='이미 추가된 게임입니다.')
+                            description='이미 추가된 제품입니다.')
                 await ctx.channel.send(embed=msg, delete_after=10.0)
 
             return
@@ -187,14 +187,14 @@ class SteamPriceBot(commands.Bot):
                 add_msg = None
 
                 try:
-                    msg = Embed(title='이름으로 게임 추가',
-                                description='추가할 게임의 이름을 입력하세요.')
+                    msg = Embed(title='이름으로 제품 추가',
+                                description='추가할 제품의 이름을 입력하세요.')
                     add_msg = await ctx.channel.send(embed=msg)
                     message = await self.wait_for('message', timeout=20.0, check=check)
 
                 except asyncio.TimeoutError:
                     await ctx.message.delete()
-                    msg = Embed(title='이름으로 게임 추가',
+                    msg = Embed(title='이름으로 제품 추가',
                                 description='시간이 초과되었습니다. 다시 시도하세요.')
                     await add_msg.edit(embed=msg, delete_after=5.0)
                     return
@@ -202,7 +202,7 @@ class SteamPriceBot(commands.Bot):
                 if message.content == '취소':
                     await ctx.message.delete()
                     await message.delete()
-                    msg = Embed(title='이름으로 게임 추가',
+                    msg = Embed(title='이름으로 제품 추가',
                                 description='추가를 취소했습니다.')
                     await add_msg.edit(embed=msg, delete_after=5.0)
                     return
@@ -230,7 +230,7 @@ class SteamPriceBot(commands.Bot):
             else:
                 max_index = len(names)
 
-            embed_desc = [f"추가할 게임의 번호를 입력하세요. [1-{str(max_index)}]\n취소하려면 '취소'라고 입력하세요.\n"]
+            embed_desc = [f"추가할 제품의 번호를 입력하세요. [1-{str(max_index)}]\n취소하려면 '취소'라고 입력하세요.\n"]
 
             for i, name in enumerate(names):
                 if i < 10:
@@ -252,14 +252,14 @@ class SteamPriceBot(commands.Bot):
                         pass
 
             try:
-                msg = Embed(title='게임 선택',
+                msg = Embed(title='제품 선택',
                             description='\n'.join(embed_desc))
                 add_msg = await ctx.channel.send(embed=msg)
                 message = await self.wait_for('message', timeout=20.0, check=check_index)
 
             except asyncio.TimeoutError:
                 await ctx.message.delete()
-                msg = Embed(title='게임 선택',
+                msg = Embed(title='제품 선택',
                             description='시간이 초과되었습니다. 다시 시도하세요.')
                 await add_msg.edit(embed=msg, delete_after=5.0)
                 return
@@ -267,7 +267,7 @@ class SteamPriceBot(commands.Bot):
             if message.content == '취소':
                 await ctx.message.delete()
                 await message.delete()
-                msg = Embed(title='게임 선택',
+                msg = Embed(title='제품 선택',
                             description='추가를 취소했습니다.')
                 await add_msg.edit(embed=msg, delete_after=5.0)
                 return
@@ -289,14 +289,14 @@ class SteamPriceBot(commands.Bot):
                 self.item_dict[app_id] = {}
                 self.save_id_dict()
 
-                msg = Embed(title='게임 추가됨',
+                msg = Embed(title='제품 추가됨',
                             description=f'[{name}]({app_url})이(가) 추가되었습니다.\n현재 가격: {price}')
 
                 await add_msg.edit(embed=msg, delete_after=15.0)
 
             else:
                 msg = Embed(title='알림',
-                            description='이미 추가된 게임입니다.')
+                            description='이미 추가된 제품입니다.')
                 await add_msg.edit(embed=msg, delete_after=10.0)
 
             return
@@ -305,12 +305,12 @@ class SteamPriceBot(commands.Bot):
         async def remove(ctx):
             if not self.id_dict:
                 await ctx.message.delete()
-                await ctx.channel.send('추가된 게임이 없습니다.', delete_after=10.0)
+                await ctx.channel.send('추가된 제품이 없습니다.', delete_after=10.0)
                 return
 
             await self.update_dict()
 
-            message_to_send = ["제거할 게임의 번호를 입력하세요. (예시: 1)\n여러 게임을 제거하려면 다음과 같이 입력하세요: '1/2/3'\n취소하려면 '취소'라고 입력하세요.\n"]
+            message_to_send = ["제거할 제품의 번호를 입력하세요. (예시: 1)\n여러 제품을 제거하려면 다음과 같이 입력하세요: '1/2/3'\n취소하려면 '취소'라고 입력하세요.\n"]
             remove_list = []
             index = 0
 
@@ -367,7 +367,7 @@ class SteamPriceBot(commands.Bot):
                     del self.id_dict[remove_url]
                     deleted_games.append(removed_item)
 
-                msg = Embed(title='다음 게임 제거됨',
+                msg = Embed(title='다음 제품 제거됨',
                             description='\n'.join(deleted_games))
 
                 await ctx.send(embed=msg, delete_after=15.0)
@@ -383,7 +383,7 @@ class SteamPriceBot(commands.Bot):
                 del self.item_dict[remove_url]
                 del self.id_dict[remove_url]
 
-                msg = Embed(title='게임 제거됨',
+                msg = Embed(title='제품 제거됨',
                             description=f'{removed_item}을(를) 제거했습니다.')
 
                 await ctx.send(embed=msg, delete_after=15.0)
@@ -400,12 +400,12 @@ class SteamPriceBot(commands.Bot):
 
             if not self.id_dict:
                 await ctx.message.delete()
-                await ctx.channel.send('추가된 게임이 없습니다.')
+                await ctx.channel.send('추가된 제품이 없습니다.')
                 return
 
             await self.update_dict()
 
-            message_to_send = ["제거할 게임의 번호를 입력하세요. (예시: 1)\n여러 게임을 제거하려면 다음과 같이 입력하세요: '1/2/3'\n취소하려면 '취소'라고 입력하세요.\n"]
+            message_to_send = ["제거할 제품의 번호를 입력하세요. (예시: 1)\n여러 제품을 제거하려면 다음과 같이 입력하세요: '1/2/3'\n취소하려면 '취소'라고 입력하세요.\n"]
             remove_list = []
             index = 0
 
@@ -461,7 +461,7 @@ class SteamPriceBot(commands.Bot):
                     del self.id_dict[remove_url]
                     deleted_games.append(removed_item)
 
-                msg = Embed(title='다음 게임 제거됨',
+                msg = Embed(title='다음 제품 제거됨',
                             description='\n'.join(deleted_games))
 
                 await ctx.send(embed=msg, delete_after=15.0)
@@ -477,7 +477,7 @@ class SteamPriceBot(commands.Bot):
                 del self.item_dict[remove_url]
                 del self.id_dict[remove_url]
 
-                msg = Embed(title='게임 제거됨',
+                msg = Embed(title='제품 제거됨',
                             description=f'{removed_item}을(를) 제거했습니다.')
 
                 await ctx.send(embed=msg, delete_after=15.0)
@@ -506,7 +506,7 @@ class SteamPriceBot(commands.Bot):
                             content.append(f'[{value["name"]}](https://store.steampowered.com/{self.id_dict[key]["type"]}/{key}) - {value["final_formatted"]}')
 
                 await ctx.message.delete()
-                msg = Embed(title=f'{str(author).split("#")[0]}님은 현재 {str(len(game_list))} 개의 게임이 추가되어 있습니다.',
+                msg = Embed(title=f'{str(author).split("#")[0]}님은 현재 {str(len(game_list))} 개의 제품이 추가되어 있습니다.',
                             description='\n'.join(content))
 
                 await ctx.channel.send(embed=msg, delete_after=30.0)
@@ -514,7 +514,7 @@ class SteamPriceBot(commands.Bot):
             else:
                 await ctx.message.delete()
                 msg = Embed(title='알림',
-                            description=f'{str(author).split("#")[0]}님은 추가하신 게임이 없습니다.')
+                            description=f'{str(author).split("#")[0]}님은 추가하신 제품이 없습니다.')
                 await ctx.channel.send(embed=msg, delete_after=10.0)
 
         @self.command(name='listall')
@@ -536,7 +536,7 @@ class SteamPriceBot(commands.Bot):
                             content.append(f'[{value["name"]}](https://store.steampowered.com/{self.id_dict[key]["type"]}/{key}) - {value["final_formatted"]}')
 
                 await ctx.message.delete()
-                msg = Embed(title=f'현재 채널에 {str(len(self.id_dict))} 개의 게임이 추가되어 있습니다.',
+                msg = Embed(title=f'현재 채널에 {str(len(self.id_dict))} 개의 제품이 추가되어 있습니다.',
                             description='\n'.join(content))
 
                 await ctx.channel.send(embed=msg, delete_after=30.0)
@@ -544,7 +544,7 @@ class SteamPriceBot(commands.Bot):
             else:
                 await ctx.message.delete()
                 msg = Embed(title='알림',
-                            description='추가된 게임이 없습니다.')
+                            description='추가된 제품이 없습니다.')
                 await ctx.channel.send(embed=msg, delete_after=10.0)
 
     async def update_dict(self):
@@ -624,7 +624,7 @@ class SteamPriceBot(commands.Bot):
             if return_value:
                 return False
             else:
-                await self.owner.send(f'다음 게임을 불러오는 도중 오류가 발생했습니다: {app_id}\n{e}')
+                await self.owner.send(f'다음 제품을 불러오는 도중 오류가 발생했습니다: {app_id}\n{e}')
                 return
 
         if return_value:
