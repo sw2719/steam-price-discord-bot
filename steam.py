@@ -58,15 +58,15 @@ class SteamPriceBot(commands.Bot):
         self.item_dict = OrderedDict()
 
         try:
-            with open('added_games.json', 'r') as f:
+            with open('added_products.json', 'r') as f:
                 self.id_dict = json.loads(f.read(), object_pairs_hook=OrderedDict)
 
             for app_id in self.id_dict.keys():
                 self.item_dict[str(app_id)] = {}
 
         except FileNotFoundError:
-            print('added_games.json not found. Creating one!')
-            with open('added_games.json', 'w') as f:
+            print('added_products.json not found. Creating one!')
+            with open('added_products.json', 'w') as f:
                 f.write(json.dumps({}, indent=4))
             self.id_dict = OrderedDict()
 
@@ -75,7 +75,7 @@ class SteamPriceBot(commands.Bot):
         self.bg_task = self.loop.create_task(self.check_price())
 
     def save_id_dict(self):
-        with open('added_games.json', 'w') as f:
+        with open('added_products.json', 'w') as f:
             f.write(json.dumps(self.id_dict, indent=4))
 
     def parse_url(self, input_url):
