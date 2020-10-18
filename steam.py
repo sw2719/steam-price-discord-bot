@@ -666,6 +666,9 @@ class SteamPriceBot(commands.Bot):
                             elif self.id_dict[key]['type'] == 'package':
                                 store_url = f'https://store.steampowered.com/sub/{key}'
 
+                            elif self.id_dict[key]['type'] == 'bundle':
+                                store_url = f'https://store.steampowered.com/bundle/{key}'
+
                             if value['on_sale']:
                                 msg = Embed(title=value['name'],
                                             url=store_url,
@@ -673,7 +676,7 @@ class SteamPriceBot(commands.Bot):
                             else:
                                 msg = Embed(title=value['name'],
                                             url=store_url,
-                                            description=f'{value["name"]}의 가격이 변경되었습니다: \n\n{last_dict[key]["final_formatted"]} -> {value["final_formatted"]}')
+                                            description=f'{value["name"]}의 가격이 변경되었습니다. \n\n{last_dict[key]["final_formatted"]} -> {value["final_formatted"]}')
 
                             if value['on_sale']:
                                 await self.get_channel(self.id_dict[key]['channel']).send(f'<@{self.id_dict[key]["user_id"]}>', embed=msg)
