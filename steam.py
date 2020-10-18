@@ -258,14 +258,12 @@ class SteamPriceBot(commands.Bot):
                 message = await self.wait_for('message', timeout=20.0, check=check_index)
 
             except asyncio.TimeoutError:
-                await ctx.message.delete()
                 msg = Embed(title='제품 선택',
                             description='시간이 초과되었습니다. 다시 시도하세요.')
                 await add_msg.edit(embed=msg, delete_after=5.0)
                 return
 
             if message.content == '취소':
-                await ctx.message.delete()
                 await message.delete()
                 msg = Embed(title='제품 선택',
                             description='추가를 취소했습니다.')
